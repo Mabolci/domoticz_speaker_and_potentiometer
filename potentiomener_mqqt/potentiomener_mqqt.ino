@@ -1,28 +1,31 @@
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "secret.h"
+#include "music.h"
 
 # define DEBUG 0
-
-
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-const int pinLevel = 33;
-const int pinSwitch = 19;
+const int pinKnob = 0;
+const int pinSwitch = 4;
+const int pinVolume = 5;
 const int pinSpeaker = 15;
 
+
+
 int calculateMqttVoltage(int input) {
-return (input*16);
+return (input * 16);
 }
 
 short unsigned int onlineSwitch = 0;
 short unsigned int onlineLevel = 0;
+short unsigned int volume = 0;
 
-int getLevel() {
-	return ((analogRead(pinLevel) * 100) / 4095);
+int getKnob() {
+	return ((analogRead(pinKnob) / 4));
 }
 
 int getSwitch() {
@@ -35,6 +38,7 @@ void setup() {
 	setup_wifi();
 	client.setServer(mqtt_server, mqtt_port);
 	client.setCallback(callback);
+  
 }
 
 void setup_wifi() {
@@ -104,36 +108,35 @@ void reconnect() {
 }
 
 int i = 0;
-float value;
 
 void loop() {
 	static char buffer[70];
 	if (!client.connected()) {
 		reconnect();
 	}
-	sprintf(buffer,"{  \"idx\" : 6,  \"nvalue\" : %i,  \"svalue\" : \"%f\" }", getSwitch(), (float)(getLevel()%16));
-	// Serial.println(buffer);
+	sprintf(buffer,"{  \"idx\" : 6,  \"nvalue\" : %i,  \"svalue\" : \"%f\" }", getSwitch(), (float)(getKnob()%16));
 	client.publish("domoticz/in", buffer);
-	//Serial.print("Value on a pin changed to: ");
-	//Serial.println(getLevel());
-	//Serial.println(getSwitch());
 	client.loop();
-	//Serial.println(calculateMqttVoltage(onlineLevel));
-  
-  value = (i % 3000);  
-  if (i > 1000) {
-    i = 0;
-  }
 
-	if (getSwitch() == 1) {
-    value *= (getLevel() / 255);
-	} else {
-    value *= (calculateMqttVoltage(onlineLevel) / 255);
+  if (getSwitch()) {
+    volume = getKnob();    
   }
+  else {
+    volume = calculateMqttVoltage(onlineLevel);
+  }
+  if (!onlineSwitch)  
+  {
+    volume = 0;
+  }
+  Serial.print("volume: ");
+  Serial.println(volume);
+  Serial.print("switch: ");
+  Serial.println(getSwitch());
   
-  Serial.println(value);
-    
-  analogWrite(pinSpeaker, value);
+  analogWrite(pinVolume, volume);
+  if(playNoteByIndex(pinSpeaker, i) == 1) { //play teh music
+    i = -1;                     //restart if end
+  }
   i++;
 }
 
