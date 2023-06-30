@@ -11,10 +11,9 @@ PubSubClient client(espClient);
 
 const int pinKnob = 0;
 const int pinSwitch = 4;
-const int pinVolume = 5;
 const int pinSpeaker = 15;
 
-
+const int pinsVolumes[6] = {16, 5, 2, 14, 12, 13};
 
 int calculateMqttVoltage(int input) {
 return (input * 16);
@@ -24,6 +23,19 @@ short unsigned int onlineSwitch = 0;
 short unsigned int onlineLevel = 0;
 short unsigned int volume = 0;
 
+void writeVolume(int volume) {
+  int level = volume / 40;
+  for (int i = 0; i < 6; i++) {
+    if (level == 0 || level-1 < i) {
+      pinMode(pinsVolumes[i], INPUT);
+    }
+    else {
+      pinMode(pinsVolumes[i], OUTPUT);     
+      analogWrite(pinsVolumes[i], 255);      
+    }
+  }
+}
+
 int getKnob() {
 	return ((analogRead(pinKnob) / 4));
 }
@@ -32,9 +44,13 @@ int getSwitch() {
 	return (digitalRead(pinSwitch));
 }
 
-void setup() {
-
+void setup() {  
 	Serial.begin(115200);
+
+  for (int i = 0; i < 6; i++) {
+    pinMode(pinsVolumes[i], OUTPUT);
+  }
+
 	setup_wifi();
 	client.setServer(mqtt_server, mqtt_port);
 	client.setCallback(callback);
@@ -133,7 +149,8 @@ void loop() {
   Serial.print("switch: ");
   Serial.println(getSwitch());
   
-  analogWrite(pinVolume, volume);
+  writeVolume(volume);
+
   if(playNoteByIndex(pinSpeaker, i) == 1) { //play teh music
     i = -1;                     //restart if end
   }
